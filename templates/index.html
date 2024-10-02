@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home Environment Dashboard</title>
+</head>
+<body>
+    <h1>Home Environment Dashboard</h1>
+    <p>Temperature: {{ temperature }}°C</p>
+    <p>Humidity: {{ humidity }}%</p>
+    <p>Presence Detected: {{ 'Yes' if presence else 'No' }}</p>
+    <p>Light State: {{ 'On' if light_state else 'Off' }}</p>
+
+    <form action="/toggle_light" method="post">
+        <button type="submit">{{ 'Turn Off' if light_state else 'Turn On' }} Light</button>
+    </form>
+</body>
+</html>
