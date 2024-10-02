@@ -1,64 +1,31 @@
-# main.py
+from flask import Flask, render_template, request
+from gpiozero import LED
 
-import time
-from sensors import read_temperature_humidity, detect_presence
-from actuators import control_presence_led, read_button_state, toggle_light_state
-from cloud import log_data_to_cloud
-from alerts import send_email_alert
+app = Flask(__name__)
+leds = [LED(17), LED(16), LED(6)]
 
-# Threshold settings
-TEMP_THRESHOLD_HIGH = 30  # Degrees Celsius
-TEMP_THRESHOLD_LOW = 15
-HUMIDITY_THRESHOLD_HIGH = 70  # Percentage
-HUMIDITY_THRESHOLD_LOW = 30
+def fetch_states():
+    return [bool(led.is_lit) for led in leds]
 
-# Initial device states
-light_state = False
+@app.route('/')
+def index():
+    for led in leds:
+        led.on()
 
-def main():
-    global light_state
-    while True:
-        # Read sensor data
-        temperature, humidity = read_temperature_humidity()
-        presence = detect_presence()
-        button_pressed = read_button_state()
+    return render_template('index.html', led_states=fetch_states())
 
-        # Control LEDs based on presence
-        control_presence_led(presence)
+@app.route('led/<int:ledNum>')
+def led_control(ledNum):
+    state = request.args.get('state')
+    led = leds[ledNum - 1]
 
-        # Toggle light if button is pressed
-        if button_pressed:
-            light_state = not light_state
-            toggle_light_state(light_state)
-            print(f"Light state toggled to: {'ON' if light_state else 'OFF'}")
-            time.sleep(0.2)  # Debounce delay
+    if state == 'on':
+        led.on()
+    elif state == 'off':
+        led.off()
 
-        # Check environmental thresholds and send alerts
-        if temperature > TEMP_THRESHOLD_HIGH or temperature < TEMP_THRESHOLD_LOW:
-            send_email_alert(
-                subject="Temperature Alert",
-                message=f"Temperature is out of range: {temperature:.2f}°C"
-            )
+    print(fetch_states())
+    return render_template('index.html', led_states=fetch_states())
 
-        if humidity > HUMIDITY_THRESHOLD_HIGH or humidity < HUMIDITY_THRESHOLD_LOW:
-            send_email_alert(
-                subject="Humidity Alert",
-                message=f"Humidity is out of range: {humidity:.2f}%"
-            )
-
-        # Log data to the cloud
-        log_data_to_cloud(
-            temperature=temperature,
-            humidity=humidity,
-            presence=presence,
-            light_state=light_state
-        )
-
-        # Wait before the next iteration
-        time.sleep(5)
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Program terminated by user.")
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=50000)
