@@ -3,7 +3,6 @@ from gpiozero import DistanceSensor, LED
 from board import D4
 from time import sleep
 
-# Initialize the DHT sensor and distance sensor
 dht_sensor = adafruit_dht.DHT22(D4)
 distance_sensor = DistanceSensor(echo=24, trigger=18)
 
@@ -31,7 +30,6 @@ def categorize_humidity(humidity):
 if __name__ == '__main__':
     try:
         while True:
-            # Read distance
             dist = distance_sensor.distance
             print(f"Measured Distance = {dist * 100:.1f} cm")
             
@@ -43,7 +41,6 @@ if __name__ == '__main__':
                 green_led.off()
 
             try:
-                # Read temperature and humidity
                 temperature = dht_sensor.temperature
                 humidity = dht_sensor.humidity
 
@@ -66,7 +63,7 @@ if __name__ == '__main__':
             except RuntimeError as error:
                 print(f"Error reading from DHT sensor: {error}")
 
-            sleep(2)
+            sleep(1)
 
     except KeyboardInterrupt:
         print("Measurement stopped by User")
