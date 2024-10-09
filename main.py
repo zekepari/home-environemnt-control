@@ -13,7 +13,7 @@ distance_sensor = DistanceSensor(echo=24, trigger=18)
 green_led = LED(17)
 yellow_led = LED(27)
 
-MOVEMENT_THRESHOLD = 0.1
+MOVEMENT_THRESHOLD = 0.1  # Threshold for detecting movement
 
 sensor_data = {
     "distance": None,
@@ -24,7 +24,7 @@ sensor_data = {
     "warnings": []
 }
 
-previous_distance = None
+previous_distance = None  # To store the previous distance value
 
 def categorize_temperature(temp):
     if temp < 18:
@@ -90,3 +90,19 @@ def update_sensor_data():
         except RuntimeError as error:
             print(f"Error reading from DHT sensor: {error}")
 
+        sleep(2/5)
+
+sensor_thread = threading.Thread(target=update_sensor_data)
+sensor_thread.daemon = True
+sensor_thread.start()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/data')
+def data():
+    return jsonify(sensor_data)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
