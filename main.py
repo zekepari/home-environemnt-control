@@ -8,27 +8,22 @@ import threading
 
 app = Flask(__name__)
 
-# Initialize sensors
 dht_sensor = adafruit_dht.DHT11(D4)
 distance_sensor = DistanceSensor(echo=24, trigger=18)
 
-# Initialize LEDs
 green_led = LED(17)
 yellow_led = LED(27)
-white_led = LED(22)  # New white LED for room light
+white_led = LED(22)
 
-# Initialize button
-button = Button(23)  # Button to control the white LED
+button = Button(23)
 
-MOVEMENT_THRESHOLD = 0.1  # Threshold for detecting movement
-NO_MOVEMENT_LIMIT = 5  # Number of readings to assume no movement (for entry/exit logic)
+MOVEMENT_THRESHOLD = 0.1
+NO_MOVEMENT_LIMIT = 5
 
-# State tracking
-movement_detected = 0  # Count of consecutive detections with no significant change
-in_room = False  # Assume nobody is in the room initially
-previous_distance = None  # To store the previous distance value
+movement_detected = 0
+in_room = False
+previous_distance = None
 
-# Initialize sensor data
 sensor_data = {
     "distance": None,
     "temperature": None,
@@ -36,11 +31,10 @@ sensor_data = {
     "temp_category": None,
     "humidity_category": None,
     "warnings": [],
-    "in_room": False,  # Track if someone is in the room
-    "white_led_status": False  # Track white LED status
+    "in_room": False,
+    "white_led_status": False
 }
 
-# Function to categorize temperature
 def categorize_temperature(temp):
     if temp < 18:
         return 'cold'
@@ -49,7 +43,6 @@ def categorize_temperature(temp):
     else:
         return 'hot'
 
-# Function to categorize humidity
 def categorize_humidity(humidity):
     if humidity < 30:
         return 'low'
@@ -58,7 +51,6 @@ def categorize_humidity(humidity):
     else:
         return 'high'
 
-# Function to toggle the white LED
 def toggle_white_led():
     if white_led.is_lit:
         white_led.off()
@@ -67,10 +59,8 @@ def toggle_white_led():
         white_led.on()
         sensor_data['white_led_status'] = True
 
-# Set up button to control the white LED
 button.when_pressed = toggle_white_led
 
-# Function to update sensor data
 def update_sensor_data():
     global sensor_data, previous_distance, movement_detected, in_room
     while True:
@@ -80,31 +70,23 @@ def update_sensor_data():
             distance_change = abs(dist - previous_distance)
             
             if distance_change > MOVEMENT_THRESHOLD:
-                green_led.on()  # Movement detected
+                green_led.on()
                 yellow_led.off()
-                movement_detected = 0  # Reset no movement count
+                movement_detected = 0
 
-                # Room entry logic
                 if not in_room:
                     sensor_data["in_room"] = True
-                    in_room = True  # Person has entered the room
-                    print("Someone has entered the room.")
-                else:
-                    print("Movement inside the room detected.")
+                    in_room = True
             
             else:
-                yellow_led.on()  # No significant movement
+                yellow_led.on()
                 green_led.off()
                 movement_detected += 1
 
-                # After 5 consecutive detections of no movement, we assume leaving
                 if movement_detected >= NO_MOVEMENT_LIMIT:
                     if in_room:
                         sensor_data["in_room"] = False
-                        in_room = False  # Person has left the room
-                        print("Someone has left the room.")
-                    else:
-                        print("No movement, but no one is in the room.")
+                        in_room = False
 
         previous_distance = dist  # Update the previous distance with the current one
 
