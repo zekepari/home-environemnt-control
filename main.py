@@ -81,14 +81,10 @@ def update_sensor_data():
                 "warnings": warnings
             }
 
-            print(f"Temperature: {temperature:.1f}°C, Category: {temp_category}")
-            print(f"Humidity: {humidity:.1f}%, Category: {humidity_category}")
-            print(f"Warnings: {warnings}")
-
         except RuntimeError as error:
             print(f"Error reading from DHT sensor: {error}")
 
-        sleep(1)
+        sleep(2/5)
 
 sensor_thread = threading.Thread(target=update_sensor_data)
 sensor_thread.daemon = True
