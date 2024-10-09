@@ -1,17 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Home Environment Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .data {
+            margin-bottom: 10px;
+        }
+        .warning {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('distance').innerText = `Distance: ${data.distance.toFixed(1)} cm`;
+                    document.getElementById('temperature').innerText = `Temperature: ${data.temperature.toFixed(1)} °C (${data.temp_category})`;
+                    document.getElementById('humidity').innerText = `Humidity: ${data.humidity.toFixed(1)}% (${data.humidity_category})`;
+
+                    const warningsDiv = document.getElementById('warnings');
+                    warningsDiv.innerHTML = '';
+                    if (data.warnings.length > 0) {
+                        data.warnings.forEach(warning => {
+                            const p = document.createElement('p');
+                            p.innerText = warning;
+                            p.classList.add('warning');
+                            warningsDiv.appendChild(p);
+                        });
+                    }
+                });
+        }
+
+        setInterval(fetchData, 1000); // Fetch data every second
+    </script>
 </head>
 <body>
-    <h1>Home Environment Dashboard</h1>
-    <p>Temperature: {{ temperature }}°C</p>
-    <p>Humidity: {{ humidity }}%</p>
-    <p>Presence Detected: {{ 'Yes' if presence else 'No' }}</p>
-    <p>Light State: {{ 'On' if light_state else 'Off' }}</p>
-
-    <form action="/toggle_light" method="post">
-        <button type="submit">{{ 'Turn Off' if light_state else 'Turn On' }} Light</button>
-    </form>
+    <h1>Sensor Dashboard</h1>
+    <div class="data" id="distance">Distance: -- cm</div>
+    <div class="data" id="temperature">Temperature: -- °C</div>
+    <div class="data" id="humidity">Humidity: -- %</div>
+    <div id="warnings"></div>
 </body>
 </html>
