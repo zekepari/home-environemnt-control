@@ -3,7 +3,7 @@ from flask import Flask, render_template, jsonify
 import adafruit_dht
 from gpiozero import DistanceSensor, LED
 from board import D4
-from time import sleep
+from time import sleep, time
 
 app = Flask(__name__)
 
@@ -20,13 +20,15 @@ white_led = LED(22)  # New white LED for room light
 button = Button(23)  # Button to control the white LED
 
 MOVEMENT_THRESHOLD = 0.1  # Threshold for detecting movement
-NO_MOVEMENT_LIMIT = 10  # Number of readings to assume no movement (for entry/exit logic)
+NO_MOVEMENT_LIMIT = 5  # Number of readings to assume no movement (for entry/exit logic)
+COOLDOWN_PERIOD = 10  # Cooldown period (in seconds) to prevent false re-entry detection
 
 # State tracking
 movement_detected = 0  # Count of consecutive detections with no significant change
 in_room = False  # Assume nobody is in the room initially
 previous_distance = None  # To store the previous distance value
 movement_after_no_movement = False  # To track if we detect movement after no movement period
+last_exit_time = None  # Timestamp of the last exit to enforce cooldown
 
 # Function to categorize temperature
 def categorize_temperature(temp):
@@ -58,7 +60,7 @@ button.when_pressed = toggle_white_led
 
 # Function to retrieve sensor data dynamically
 def get_sensor_data():
-    global previous_distance, movement_detected, in_room, movement_after_no_movement
+    global previous_distance, movement_detected, in_room, movement_after_no_movement, last_exit_time
     try:
         # Read distance sensor data
         dist = distance_sensor.distance
@@ -66,20 +68,28 @@ def get_sensor_data():
         if previous_distance is not None:
             distance_change = abs(dist - previous_distance)
 
+        current_time = time()  # Get the current timestamp
+
+        # If there's significant movement
         if distance_change is not None and distance_change > MOVEMENT_THRESHOLD:
             green_led.on()  # Movement detected
             yellow_led.off()
 
-            if not in_room:
-                # First movement, assume entry into the room
-                in_room = True
-                print("Someone has entered the room.")
-            elif movement_after_no_movement:
-                # Movement detected after no movement period, assume exit
-                in_room = False
-                movement_after_no_movement = False
-                print("Someone has left the room.")
-            
+            # Check if we're in the cooldown period
+            if last_exit_time and (current_time - last_exit_time < COOLDOWN_PERIOD):
+                print("Cooldown active. Ignoring movement.")
+            else:
+                # If not in the room and no cooldown is active, assume entry
+                if not in_room:
+                    in_room = True
+                    print("Someone has entered the room.")
+                elif movement_after_no_movement:
+                    # Movement detected after no movement period, assume exit
+                    in_room = False
+                    last_exit_time = current_time  # Set the time of exit
+                    movement_after_no_movement = False
+                    print("Someone has left the room.")
+
             # Reset movement detection counter since there is movement
             movement_detected = 0
 
