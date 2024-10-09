@@ -29,6 +29,7 @@ in_room = False  # Assume nobody is in the room initially
 previous_distance = None  # To store the previous distance value
 movement_after_no_movement = False  # To track if we detect movement after no movement period
 last_exit_time = None  # Timestamp of the last exit to enforce cooldown
+led_overridden = False  # Tracks whether the button has overridden the auto LED behavior
 
 # Function to categorize temperature
 def categorize_temperature(temp):
@@ -48,12 +49,19 @@ def categorize_humidity(humidity):
     else:
         return 'high'
 
-# Function to toggle the white LED
+# Function to automatically control the white LED based on room occupancy
+def auto_control_led():
+    global led_overridden
+    if in_room and not led_overridden:
+        white_led.on()  # Turn on LED when someone is in the room
+    elif not in_room and not led_overridden:
+        white_led.off()  # Turn off LED when the room is empty
+
+# Function to toggle the white LED manually (button override)
 def toggle_white_led():
-    if white_led.is_lit:
-        white_led.off()
-    else:
-        white_led.on()
+    global led_overridden
+    white_led.toggle()  # Reverse the current LED state
+    led_overridden = not led_overridden  # Toggle the override flag
 
 # Set up button to control the white LED
 button.when_pressed = toggle_white_led
@@ -83,12 +91,17 @@ def get_sensor_data():
                 if not in_room:
                     in_room = True
                     print("Someone has entered the room.")
+                    led_overridden = False  # Reset override when auto behavior changes
+                    auto_control_led()
+
                 elif movement_after_no_movement:
                     # Movement detected after no movement period, assume exit
                     in_room = False
                     last_exit_time = current_time  # Set the time of exit
                     movement_after_no_movement = False
                     print("Someone has left the room.")
+                    led_overridden = False  # Reset override when auto behavior changes
+                    auto_control_led()
 
             # Reset movement detection counter since there is movement
             movement_detected = 0
