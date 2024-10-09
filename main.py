@@ -20,7 +20,7 @@ white_led = LED(22)  # New white LED for room light
 button = Button(23)  # Button to control the white LED
 
 MOVEMENT_THRESHOLD = 0.1  # Threshold for detecting movement
-NO_MOVEMENT_LIMIT = 5  # Number of readings to assume no movement (for entry/exit logic)
+NO_MOVEMENT_LIMIT = 10  # Number of readings to assume no movement (for entry/exit logic)
 
 # State tracking
 movement_detected = 0  # Count of consecutive detections with no significant change
@@ -74,12 +74,12 @@ def get_sensor_data():
                 # First movement, assume entry into the room
                 in_room = True
                 print("Someone has entered the room.")
-            elif movement_detected >= NO_MOVEMENT_LIMIT:
-                # Movement after no movement period, assume exit
+            elif movement_after_no_movement:
+                # Movement detected after no movement period, assume exit
                 in_room = False
                 movement_after_no_movement = False
                 print("Someone has left the room.")
-
+            
             # Reset movement detection counter since there is movement
             movement_detected = 0
 
@@ -88,10 +88,12 @@ def get_sensor_data():
             green_led.off()
 
             movement_detected += 1
+
+            # If no movement is detected for 5 cycles and someone is in the room
             if movement_detected >= NO_MOVEMENT_LIMIT and in_room:
-                # We are in a state where no movement was detected for 5 cycles
-                # Set the flag to track if we see movement again (assume they are leaving)
+                # Prepare to detect the next movement as exit
                 movement_after_no_movement = True
+                print("Waiting for next movement to assume exit...")
 
         previous_distance = dist  # Update the previous distance with the current one
 
