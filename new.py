@@ -1,7 +1,7 @@
 from gpiozero import DistanceSensor
 from time import sleep
 
-sensor = DistanceSensor(echo=24, trigger=18, max_distance=4)
+sensor = DistanceSensor(echo=24, trigger=18)
 
 if __name__ == '__main__':
     try:
