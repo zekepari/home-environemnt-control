@@ -1,44 +1,38 @@
-import Adafruit_DHT
+import adafruit_dht
 from gpiozero import DistanceSensor, LED
+from board import D4
 from time import sleep
 
-sensor = DistanceSensor(echo=24, trigger=18)
+# Initialize the DHT sensor and distance sensor
+dht_sensor = adafruit_dht.DHT22(D4)
+distance_sensor = DistanceSensor(echo=24, trigger=18)
+
 green_led = LED(17)
 yellow_led = LED(27)
 
-DHT_SENSOR = Adafruit_DHT.DHT22
-DHT_PIN = 4
-
 MOVEMENT_THRESHOLD = 0.1
 
-TEMP_CATEGORIES = {
-    'cold': lambda t: t < 18,
-    'moderate': lambda t: 18 <= t <= 24,
-    'hot': lambda t: t > 24
-}
-
-HUMIDITY_CATEGORIES = {
-    'low': lambda h: h < 30,
-    'moderate': lambda h: 30 <= h <= 60,
-    'high': lambda h: h > 60
-}
-
 def categorize_temperature(temp):
-    for category, condition in TEMP_CATEGORIES.items():
-        if condition(temp):
-            return category
-    return 'unknown'
+    if temp < 18:
+        return 'cold'
+    elif 18 <= temp <= 24:
+        return 'moderate'
+    else:
+        return 'hot'
 
 def categorize_humidity(humidity):
-    for category, condition in HUMIDITY_CATEGORIES.items():
-        if condition(humidity):
-            return category
-    return 'unknown'
+    if humidity < 30:
+        return 'low'
+    elif 30 <= humidity <= 60:
+        return 'moderate'
+    else:
+        return 'high'
 
 if __name__ == '__main__':
     try:
         while True:
-            dist = sensor.distance
+            # Read distance
+            dist = distance_sensor.distance
             print(f"Measured Distance = {dist * 100:.1f} cm")
             
             if dist < MOVEMENT_THRESHOLD:
@@ -48,16 +42,17 @@ if __name__ == '__main__':
                 yellow_led.on()
                 green_led.off()
 
-            humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
+            try:
+                # Read temperature and humidity
+                temperature = dht_sensor.temperature
+                humidity = dht_sensor.humidity
 
-            if humidity is not None and temperature is not None:
                 temp_category = categorize_temperature(temperature)
                 humidity_category = categorize_humidity(humidity)
 
                 print(f"Temperature: {temperature:.1f}°C, Category: {temp_category}")
                 print(f"Humidity: {humidity:.1f}%, Category: {humidity_category}")
 
-                # Alert based on categories
                 if temp_category == 'hot':
                     print("Warning: The room is too hot!")
                 elif temp_category == 'cold':
@@ -67,10 +62,11 @@ if __name__ == '__main__':
                     print("Warning: The humidity is too high!")
                 elif humidity_category == 'low':
                     print("Warning: The humidity is too low!")
-            else:
-                print("Failed to retrieve data from the humidity sensor.")
+            
+            except RuntimeError as error:
+                print(f"Error reading from DHT sensor: {error}")
 
-            sleep(1)
+            sleep(2)
 
     except KeyboardInterrupt:
         print("Measurement stopped by User")
