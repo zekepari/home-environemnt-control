@@ -24,6 +24,8 @@ sensor_data = {
     "warnings": []
 }
 
+previous_distance = None
+
 def categorize_temperature(temp):
     if temp < 18:
         return 'cold'
@@ -41,16 +43,21 @@ def categorize_humidity(humidity):
         return 'high'
 
 def update_sensor_data():
-    global sensor_data
+    global sensor_data, previous_distance
     while True:
         dist = distance_sensor.distance
         
-        if dist < MOVEMENT_THRESHOLD:
-            green_led.on()
-            yellow_led.off()
-        else:
-            yellow_led.on()
-            green_led.off()
+        if previous_distance is not None:
+            distance_change = abs(dist - previous_distance)
+            
+            if distance_change > MOVEMENT_THRESHOLD:
+                green_led.on()  # Movement detected
+                yellow_led.off()
+            else:
+                yellow_led.on()  # No significant movement
+                green_led.off()
+        
+        previous_distance = dist  # Update the previous distance with the current one
 
         try:
             temperature = dht_sensor.temperature
@@ -83,19 +90,3 @@ def update_sensor_data():
         except RuntimeError as error:
             print(f"Error reading from DHT sensor: {error}")
 
-        sleep(2/5)
-
-sensor_thread = threading.Thread(target=update_sensor_data)
-sensor_thread.daemon = True
-sensor_thread.start()
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/data')
-def data():
-    return jsonify(sensor_data)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
