@@ -10,6 +10,7 @@ green_led = LED(17)
 yellow_led = LED(27)
 
 MOVEMENT_THRESHOLD = 0.1
+MAX_RETRIES = 5
 
 def categorize_temperature(temp):
     if temp is None:
@@ -31,8 +32,25 @@ def categorize_humidity(humidity):
     else:
         return 'high'
 
+def read_dht_sensor():
+    for attempt in range(MAX_RETRIES):
+        try:
+            temperature = dht_sensor.temperature
+            humidity = dht_sensor.humidity
+            if temperature is not None and humidity is not None:
+                return temperature, humidity
+            else:
+                print(f"Attempt {attempt + 1} failed, retrying...")
+                sleep(2)  # Wait for 2 seconds before retrying
+        except RuntimeError as error:
+            print(f"Error reading DHT sensor (Attempt {attempt + 1}): {error}")
+            sleep(2)  # Wait for 2 seconds before retrying
+    return None, None  # Return None if all attempts fail
+
+
 if __name__ == '__main__':
     try:
+        sleep(2)  # Allow some time for the sensor to stabilize
         while True:
             dist = distance_sensor.distance
             print(f"Measured Distance = {dist * 100:.1f} cm")
@@ -44,10 +62,9 @@ if __name__ == '__main__':
                 yellow_led.on()
                 green_led.off()
 
-            try:
-                temperature = dht_sensor.temperature
-                humidity = dht_sensor.humidity
+            temperature, humidity = read_dht_sensor()
 
+            if temperature is not None and humidity is not None:
                 temp_category = categorize_temperature(temperature)
                 humidity_category = categorize_humidity(humidity)
 
@@ -63,9 +80,8 @@ if __name__ == '__main__':
                     print("Warning: The humidity is too high!")
                 elif humidity_category == 'low':
                     print("Warning: The humidity is too low!")
-            
-            except RuntimeError as error:
-                print(f"Error reading from DHT sensor: {error}")
+            else:
+                print("Failed to get a valid reading from the DHT sensor after retries.")
 
             sleep(1)
 
