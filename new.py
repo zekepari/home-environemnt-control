@@ -12,7 +12,9 @@ yellow_led = LED(27)
 MOVEMENT_THRESHOLD = 0.1
 
 def categorize_temperature(temp):
-    if temp < 18:
+    if temp is None:
+        return 'invalid'
+    elif temp < 18:
         return 'cold'
     elif 18 <= temp <= 24:
         return 'moderate'
@@ -20,7 +22,9 @@ def categorize_temperature(temp):
         return 'hot'
 
 def categorize_humidity(humidity):
-    if humidity < 30:
+    if humidity is None:
+        return 'invalid'
+    elif humidity < 30:
         return 'low'
     elif 30 <= humidity <= 60:
         return 'moderate'
