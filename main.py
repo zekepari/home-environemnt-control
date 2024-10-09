@@ -44,8 +44,7 @@ def update_sensor_data():
     global sensor_data
     while True:
         dist = distance_sensor.distance
-        print(f"Measured Distance = {dist * 100:.1f} cm")
-
+        
         if dist < MOVEMENT_THRESHOLD:
             green_led.on()
             yellow_led.off()
