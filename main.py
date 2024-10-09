@@ -4,37 +4,31 @@ import adafruit_dht
 from gpiozero import DistanceSensor, LED
 from board import D4
 from time import sleep
-import threading
 
 app = Flask(__name__)
 
+# Initialize sensors
 dht_sensor = adafruit_dht.DHT11(D4)
 distance_sensor = DistanceSensor(echo=24, trigger=18)
 
+# Initialize LEDs
 green_led = LED(17)
 yellow_led = LED(27)
-white_led = LED(22)
+white_led = LED(22)  # New white LED for room light
 
-button = Button(23)
+# Initialize button
+button = Button(23)  # Button to control the white LED
 
-MOVEMENT_THRESHOLD = 0.1
-NO_MOVEMENT_LIMIT = 5
+MOVEMENT_THRESHOLD = 0.1  # Threshold for detecting movement
+NO_MOVEMENT_LIMIT = 5  # Number of readings to assume no movement (for entry/exit logic)
 
-movement_detected = 0
-in_room = False
-previous_distance = None
+# State tracking
+movement_detected = 0  # Count of consecutive detections with no significant change
+in_room = False  # Assume nobody is in the room initially
+previous_distance = None  # To store the previous distance value
+movement_after_no_movement = False  # To track if we detect movement after no movement period
 
-sensor_data = {
-    "distance": None,
-    "temperature": None,
-    "humidity": None,
-    "temp_category": None,
-    "humidity_category": None,
-    "warnings": [],
-    "in_room": False,
-    "white_led_status": False
-}
-
+# Function to categorize temperature
 def categorize_temperature(temp):
     if temp < 18:
         return 'cold'
@@ -43,6 +37,7 @@ def categorize_temperature(temp):
     else:
         return 'hot'
 
+# Function to categorize humidity
 def categorize_humidity(humidity):
     if humidity < 30:
         return 'low'
@@ -51,82 +46,91 @@ def categorize_humidity(humidity):
     else:
         return 'high'
 
+# Function to toggle the white LED
 def toggle_white_led():
     if white_led.is_lit:
         white_led.off()
-        sensor_data['white_led_status'] = False
     else:
         white_led.on()
-        sensor_data['white_led_status'] = True
 
+# Set up button to control the white LED
 button.when_pressed = toggle_white_led
 
-def update_sensor_data():
-    global sensor_data, previous_distance, movement_detected, in_room
-    while True:
+# Function to retrieve sensor data dynamically
+def get_sensor_data():
+    global previous_distance, movement_detected, in_room, movement_after_no_movement
+    try:
+        # Read distance sensor data
         dist = distance_sensor.distance
-        
+        distance_change = None
         if previous_distance is not None:
             distance_change = abs(dist - previous_distance)
-            
-            if distance_change > MOVEMENT_THRESHOLD:
-                green_led.on()
-                yellow_led.off()
-                movement_detected = 0
 
-                if not in_room:
-                    sensor_data["in_room"] = True
-                    in_room = True
-            
-            else:
-                yellow_led.on()
-                green_led.off()
-                movement_detected += 1
+        if distance_change is not None and distance_change > MOVEMENT_THRESHOLD:
+            green_led.on()  # Movement detected
+            yellow_led.off()
 
-                if movement_detected >= NO_MOVEMENT_LIMIT:
-                    if in_room:
-                        sensor_data["in_room"] = False
-                        in_room = False
+            if not in_room:
+                # First movement, assume entry into the room
+                in_room = True
+                print("Someone has entered the room.")
+            elif movement_detected >= NO_MOVEMENT_LIMIT:
+                # Movement after no movement period, assume exit
+                in_room = False
+                movement_after_no_movement = False
+                print("Someone has left the room.")
+
+            # Reset movement detection counter since there is movement
+            movement_detected = 0
+
+        else:
+            yellow_led.on()  # No significant movement
+            green_led.off()
+
+            movement_detected += 1
+            if movement_detected >= NO_MOVEMENT_LIMIT and in_room:
+                # We are in a state where no movement was detected for 5 cycles
+                # Set the flag to track if we see movement again (assume they are leaving)
+                movement_after_no_movement = True
 
         previous_distance = dist  # Update the previous distance with the current one
 
-        try:
-            temperature = dht_sensor.temperature
-            humidity = dht_sensor.humidity
+        # Read DHT sensor data
+        temperature = dht_sensor.temperature
+        humidity = dht_sensor.humidity
 
-            temp_category = categorize_temperature(temperature)
-            humidity_category = categorize_humidity(humidity)
+        temp_category = categorize_temperature(temperature)
+        humidity_category = categorize_humidity(humidity)
 
-            warnings = []
+        warnings = []
 
-            if temp_category == 'hot':
-                warnings.append("Warning: The room is too hot!")
-            elif temp_category == 'cold':
-                warnings.append("Warning: The room is too cold!")
+        if temp_category == 'hot':
+            warnings.append("Warning: The room is too hot!")
+        elif temp_category == 'cold':
+            warnings.append("Warning: The room is too cold!")
 
-            if humidity_category == 'high':
-                warnings.append("Warning: The humidity is too high!")
-            elif humidity_category == 'low':
-                warnings.append("Warning: The humidity is too low!")
+        if humidity_category == 'high':
+            warnings.append("Warning: The humidity is too high!")
+        elif humidity_category == 'low':
+            warnings.append("Warning: The humidity is too low!")
 
-            sensor_data.update({
-                "distance": dist * 100,  # convert to cm
-                "temperature": temperature,
-                "humidity": humidity,
-                "temp_category": temp_category,
-                "humidity_category": humidity_category,
-                "warnings": warnings
-            })
+        # Return the latest sensor data
+        sensor_data = {
+            "distance": dist * 100,  # convert to cm
+            "temperature": temperature,
+            "humidity": humidity,
+            "temp_category": temp_category,
+            "humidity_category": humidity_category,
+            "warnings": warnings,
+            "in_room": in_room,
+            "white_led_status": white_led.is_lit
+        }
 
-        except RuntimeError as error:
-            print(f"Error reading from DHT sensor: {error}")
+        return sensor_data
 
-        sleep(2/5)
-
-# Start the sensor data update thread
-sensor_thread = threading.Thread(target=update_sensor_data)
-sensor_thread.daemon = True
-sensor_thread.start()
+    except RuntimeError as error:
+        print(f"Error reading from sensors: {error}")
+        return {}
 
 # Flask routes
 @app.route('/')
@@ -135,6 +139,7 @@ def index():
 
 @app.route('/data')
 def data():
+    sensor_data = get_sensor_data()  # Fetch the latest sensor data dynamically
     return jsonify(sensor_data)
 
 if __name__ == '__main__':
