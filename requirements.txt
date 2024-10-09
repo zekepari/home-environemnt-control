@@ -1,1 +1,2 @@
 gpiozero==2.0.1
+Adafruit_DHT=1.4.0
