@@ -1,7 +1,9 @@
+import os
 from gpiozero import DistanceSensor
 from time import sleep
 
-# Set up the DistanceSensor using GPIO pins
+os.environ["GPIOZERO_PIN_FACTORY"] = "pigpio"
+
 sensor = DistanceSensor(echo=24, trigger=18)
 
 if __name__ == '__main__':
